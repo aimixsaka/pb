@@ -47,8 +47,15 @@ func normalPaste(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			contents.WriteString(r.FormValue("c"))
 		}
 	}
+    // Restrict for content length
+    if contents.Len() > 2097152 {
+        fmt.Fprintln(w, "ERROR: content length too long")
+        return
+    }
+
 	content := contents.String()
 	content = strings.TrimRight(content, "\n\r")
+
 	// LOG
 	myLog.WithFields(
 		logrus.Fields{
@@ -66,7 +73,7 @@ func normalPaste(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
     short: %s
     url: %s
     `
-	s = fmt.Sprintf(s, time.Now(), long, short, baseURL+short)
+	s = fmt.Sprintf(s, time.Now(), long, short, baseURL + short)
 	if err != nil {
 		w.WriteHeader(http.StatusOK)
 		myLog.Error(err)
@@ -88,21 +95,7 @@ func contentByPbid(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		},
 	).Info("")
 
-	// === serve for static resources like css, js ===
-	// as the /static/xxx will conflict wiht /:pbid/:lan,
-	// so use this way to solve static file (ugly though :<)
-	// if slices.Contains[string](statics, pbid) {
-	//     // LOG
-	//     myLog.WithFields(
-	//         logrus.Fields{
-	//         "method": "handlers.go: contentByPbidHighLight",
-	//            "resource": pbid,
-	//     },).Info("try to get static resources")
-	//     http.ServeFile(w, r, pbid)
-	//     return
-	// }
-
-	if len(pbid) > 5 {
+	if len(pbid) > 15 {
 		var err1 error
 		content, err1 = getV(pbid)
 		err = errors.Join(err1)
@@ -117,11 +110,8 @@ func contentByPbid(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		myLog.Error(err)
 	}
 
-    // if find javascript
-    if len(content) < 100 && strings.Contains(content, "script") {
-        // set html to plain, prevent xss hack.
-        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-    }
+    // Serve as text/plain, prevent xss hack
+    w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	rc := http.NewResponseController(w)
 	rc.SetWriteDeadline(time.Time{})
@@ -167,12 +157,6 @@ func contentByPbidHighLight(w http.ResponseWriter, r *http.Request, ps httproute
 	// set default contentype
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// <Deprecated>
-	// use template instead of pure text html.
-	// rc := http.NewResponseController(w)
-	// rc.SetWriteDeadline(time.Time{})
-	// w.Write(stringToBytes(fmt.Sprintf(hlTemplate, theme, lan, content)))
-
 	pbtmpl, err4 := template.New("pbtmpl.html").Delims("{[", "]}").ParseFiles("./pbtmpl.html")
 
     err = errors.Join(err4)
@@ -184,8 +168,3 @@ func contentByPbidHighLight(w http.ResponseWriter, r *http.Request, ps httproute
 		myLog.Error(err)
 	}
 }
-
-// === try to solve http force redirect ===
-// func redirectToTls(w http.ResponseWriter, r *http.Request) {
-//     http.Redirect(w, r, "https://aimisaka.site:443" + r.RequestURI, http.StatusMovedPermanently)
-// }
