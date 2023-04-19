@@ -28,8 +28,8 @@ func initRedisDB() {
 }
 
 func setV(long string, short string, value string) (err error) {
-	err1 := rdb.Set(ctx, long, value, time.Hour*24*5).Err()
-	err0 := rdb.Set(ctx, short, long, time.Hour*24*5).Err()
+	err1 := rdb.Set(ctx, long, value, time.Hour).Err()
+	err0 := rdb.Set(ctx, short, long, time.Hour).Err()
 	err = errors.Join(err0, err1)
 	return
 }
